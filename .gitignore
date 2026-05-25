@@ -33,6 +33,7 @@ Full_MultiDomain_Features_Role3_v5/
 # Generated notebook outputs
 notebook_outputs/
 * copy.ipynb
+notebooks/model_training_full_paper_features_baseline_v2.ipynb
 
 # Local reports / large paper files
 *.odt

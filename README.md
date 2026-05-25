@@ -99,11 +99,16 @@ DataMining_Project/
 │   │   └── current_features -> ../../Full_MultiDomain_Features_Role3_v5
 │   └── dags/
 │       └── ftd_eeg_mlflow_final_pipeline.py
-├── model_training_losocv_full_60_v4_split.ipynb
-├── model_training_full_paper_features_baseline.ipynb
-├── model_training_resnet_cnn.ipynb
-├── recompute_15_updated_connectivity_features.ipynb
-├── recompute_full_60_connectivity_features.ipynb
+├── notebooks/
+│   ├── README.md
+│   ├── build_full_60_connectivity_features.ipynb
+│   ├── model_training_precomputed_features.ipynb
+│   ├── model_training_losocv_full.ipynb
+│   ├── model_training_losocv_full_60_v4_split.ipynb
+│   ├── model_training_full_paper_features_baseline.ipynb
+│   ├── model_training_resnet_cnn.ipynb
+│   ├── recompute_15_updated_connectivity_features.ipynb
+│   └── recompute_full_60_connectivity_features.ipynb
 ├── Cleaned_Epochs/                         # ignored: large local data
 ├── ds004504/                               # ignored: raw OpenNeuro dataset
 ├── Full_MultiDomain_Features_Role3_v5/     # ignored: feature cache for Airflow
@@ -164,16 +169,18 @@ Các notebook chính:
 
 | Notebook | Mục đích |
 |---|---|
-| `model_training_losocv_full_60_v4_split.ipynb` | Notebook chính cho stacked ensemble LOSOCV trên ba bài toán nhị phân |
-| `model_training_full_paper_features_baseline.ipynb` | Baseline theo từng feature set connectivity |
-| `model_training_resnet_cnn.ipynb` | Mô hình bổ sung ResNet/CNN |
-| `recompute_15_updated_connectivity_features.ipynb` | Tính lại một phần connectivity và ghép cache |
-| `recompute_full_60_connectivity_features.ipynb` | Tính lại toàn bộ 60 connectivity feature sets |
+| `notebooks/model_training_losocv_full_60_v4_split.ipynb` | Notebook chính cho stacked ensemble LOSOCV trên ba bài toán nhị phân |
+| `notebooks/model_training_full_paper_features_baseline.ipynb` | Baseline theo từng feature set connectivity |
+| `notebooks/model_training_resnet_cnn.ipynb` | Mô hình bổ sung ResNet/CNN |
+| `notebooks/recompute_15_updated_connectivity_features.ipynb` | Tính lại một phần connectivity và ghép cache |
+| `notebooks/recompute_full_60_connectivity_features.ipynb` | Tính lại toàn bộ 60 connectivity feature sets |
+
+Xem thêm `notebooks/README.md` để biết vai trò và lý do tồn tại của từng notebook.
 
 Nếu chỉ muốn xem kết quả đã chốt, mở:
 
 ```text
-model_training_losocv_full_60_v4_split.ipynb
+notebooks/model_training_losocv_full_60_v4_split.ipynb
 ```
 
 Nếu muốn chạy lại toàn bộ từ feature cache, kiểm tra biến đường dẫn trong notebook trỏ về:
