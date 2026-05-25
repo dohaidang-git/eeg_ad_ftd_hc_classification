@@ -1,0 +1,90 @@
+x-airflow-common: &airflow-common
+  build:
+    context: .
+    dockerfile: Dockerfile
+  environment: &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "true"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
+    FTD_EEG_PROJECT_ROOT: ${FTD_EEG_PROJECT_ROOT:-/opt/airflow/project}
+    FTD_EEG_FEATURE_CACHE_DIR: ${FTD_EEG_FEATURE_CACHE_DIR:-/opt/airflow/project/airflow/cache/current_features}
+    MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-file:/opt/airflow/project/mlruns}
+    MLFLOW_EXPERIMENT_NAME: ${MLFLOW_EXPERIMENT_NAME:-ftd_ad_hc_final_artifacts}
+  volumes:
+    - ..:/opt/airflow/project
+    - ./dags:/opt/airflow/dags
+    - ./logs:/opt/airflow/logs
+    - ./plugins:/opt/airflow/plugins
+    - ./config:/opt/airflow/config
+  user: "${AIRFLOW_UID:-1000}:0"
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+        airflow db migrate
+        airflow users create \
+          --username airflow \
+          --firstname Airflow \
+          --lastname Admin \
+          --role Admin \
+          --email airflow@example.com \
+          --password airflow || true
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    restart: unless-stopped
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  mlflow-ui:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: mlflow ui --backend-store-uri /opt/airflow/project/mlruns --host 0.0.0.0 --port 5000
+    environment:
+      MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-file:/opt/airflow/project/mlruns}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ..:/opt/airflow/project
+    user: "${AIRFLOW_UID:-1000}:0"
+    restart: unless-stopped
+
+volumes:
+  postgres-db-volume:
