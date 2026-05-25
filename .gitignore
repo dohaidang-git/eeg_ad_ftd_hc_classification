@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+env/
+
+# Local tooling
+.codex
+.agents/
+
+# Airflow local runtime
+airflow/logs/
+airflow/config/
+airflow/plugins/
+airflow/.env
+airflow/dags/__pycache__/
+airflow/cache/current_features
+
+# MLflow local tracking store
+mlruns/
+
+# Large EEG datasets and derived feature caches
+ds004504/
+Cleaned_Epochs/
+Full_MultiDomain_Features_Role3/
+Full_MultiDomain_Features_Role3_v5/
+*.tar.zst
+*.zip
+.cache/
+
+# Generated notebook outputs
+notebook_outputs/
+* copy.ipynb
+
+# Local reports / large paper files
+*.odt
+*.pdf
+
+# OS/editor
+.DS_Store
+Thumbs.db

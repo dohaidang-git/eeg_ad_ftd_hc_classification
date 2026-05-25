@@ -1,0 +1,12 @@
+numpy
+pandas
+scipy
+scikit-learn
+matplotlib
+mne
+pyriemann
+mlflow
+torch
+jupyter
+ipykernel
+tabulate
