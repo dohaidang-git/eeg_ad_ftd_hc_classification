@@ -254,15 +254,38 @@ DAG hiện tại:
 
 ```text
 airflow/dags/ftd_eeg_mlflow_final_pipeline.py
+airflow/dags/ftd_eeg_losocv_mlflow_pipeline.py
 ```
 
-DAG này không train lại notebook. Nó dùng kết quả đã chốt và cache `Full_MultiDomain_Features_Role3_v5` để:
+Project có hai DAG:
 
-1. Validate feature cache và output files.
-2. Tóm tắt feature cache.
-3. Đọc metrics cuối.
-4. Sinh `model_card.md`.
-5. Log metrics và artifacts vào MLflow.
+| DAG | Vai trò |
+|---|---|
+| `ftd_eeg_mlflow_final_pipeline` | Dùng kết quả notebook đã chốt, validate cache/output và log artifacts sang MLflow |
+| `ftd_eeg_losocv_mlflow_pipeline` | Dùng Airflow để chạy lại LOSOCV training từ connectivity cache và log kết quả sang MLflow |
+
+DAG `ftd_eeg_mlflow_final_pipeline` không train lại notebook. Nó dùng kết quả đã chốt và cache `Full_MultiDomain_Features_Role3_v5` để:
+
+1. Kiểm tra feature cache.
+2. Nếu cache đủ 60 connectivity feature sets thì dùng lại cache.
+3. Nếu cache thiếu thì tính lại connectivity từ `Cleaned_Epochs`.
+4. Validate output files của notebook.
+5. Tóm tắt feature cache.
+6. Đọc metrics cuối.
+7. Sinh `model_card.md`.
+8. Log metrics và artifacts vào MLflow.
+
+DAG `ftd_eeg_losocv_mlflow_pipeline` chạy lại phần training LOSOCV:
+
+```text
+ensure_feature_cache
+        ↓
+train_ad_hc_losocv ┐
+train_ftd_hc_losocv ├── summarize_losocv_runs
+train_ftd_ad_losocv ┘
+```
+
+Mỗi task train gọi `scripts/run_mlflow_experiment.py`, dùng `FgMDM` làm base classifier và `Logistic Regression Elastic Net` làm meta-classifier. Kết quả được log vào MLflow experiment `ftd_ad_hc_losocv_airflow`.
 
 Cache cho Airflow được trỏ qua symlink:
 
@@ -281,7 +304,13 @@ ln -s ../../Full_MultiDomain_Features_Role3_v5 airflow/cache/current_features
 
 ```bash
 FTD_EEG_FEATURE_CACHE_DIR=/opt/airflow/project/airflow/cache/current_features
+FTD_EEG_EPOCH_DIR=/opt/airflow/project/Cleaned_Epochs
+FTD_EEG_CONNECTIVITY_WORK_CACHE_DIR=/opt/airflow/project/.cache/connectivity
+MLFLOW_LOSOCV_EXPERIMENT_NAME=ftd_ad_hc_losocv_airflow
+FTD_EEG_LOSOCV_OUTER_LIMIT=
 ```
+
+Nếu chỉ muốn smoke test DAG LOSOCV, đặt `FTD_EEG_LOSOCV_OUTER_LIMIT=4` trong `airflow/.env`. Nếu để rỗng, DAG chạy full LOSOCV và sẽ tốn nhiều thời gian.
 
 ### Chạy Airflow bằng Docker Compose
 
