@@ -1,4 +1,8 @@
 mlflow==2.14.3
 numpy==1.26.4
 pandas==2.2.2
+scipy==1.13.1
+mne==1.7.1
+scikit-learn
+pyriemann
 tabulate==0.9.0

@@ -10,8 +10,19 @@ x-airflow-common: &airflow-common
     AIRFLOW__API__AUTH_BACKENDS: airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session
     FTD_EEG_PROJECT_ROOT: ${FTD_EEG_PROJECT_ROOT:-/opt/airflow/project}
     FTD_EEG_FEATURE_CACHE_DIR: ${FTD_EEG_FEATURE_CACHE_DIR:-/opt/airflow/project/airflow/cache/current_features}
+    FTD_EEG_EPOCH_DIR: ${FTD_EEG_EPOCH_DIR:-/opt/airflow/project/Cleaned_Epochs}
+    FTD_EEG_CONNECTIVITY_WORK_CACHE_DIR: ${FTD_EEG_CONNECTIVITY_WORK_CACHE_DIR:-/opt/airflow/project/.cache/connectivity}
     MLFLOW_TRACKING_URI: ${MLFLOW_TRACKING_URI:-file:/opt/airflow/project/mlruns}
     MLFLOW_EXPERIMENT_NAME: ${MLFLOW_EXPERIMENT_NAME:-ftd_ad_hc_final_artifacts}
+    MLFLOW_LOSOCV_EXPERIMENT_NAME: ${MLFLOW_LOSOCV_EXPERIMENT_NAME:-ftd_ad_hc_losocv_airflow}
+    FTD_EEG_LOSOCV_BANDS: ${FTD_EEG_LOSOCV_BANDS:-delta,theta,alpha,beta,gamma}
+    FTD_EEG_LOSOCV_METRICS: ${FTD_EEG_LOSOCV_METRICS:-cov,corr,xcov,xcorr,csd,coh,mi,ecc,aecov,aecorr,plv,wplv}
+    FTD_EEG_LOSOCV_INNER_FOLDS: ${FTD_EEG_LOSOCV_INNER_FOLDS:-5}
+    FTD_EEG_LOSOCV_OUTER_LIMIT: ${FTD_EEG_LOSOCV_OUTER_LIMIT:-}
+    FTD_EEG_FGMDM_METRIC: ${FTD_EEG_FGMDM_METRIC:-logeuclid}
+    FTD_EEG_FILTER_RATIO: ${FTD_EEG_FILTER_RATIO:-0.5}
+    FTD_EEG_ELASTICNET_ALPHA: ${FTD_EEG_ELASTICNET_ALPHA:-1.0}
+    FTD_EEG_ELASTICNET_L1_RATIO: ${FTD_EEG_ELASTICNET_L1_RATIO:-0.15}
   volumes:
     - ..:/opt/airflow/project
     - ./dags:/opt/airflow/dags
