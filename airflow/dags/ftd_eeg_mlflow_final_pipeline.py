@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -18,9 +20,30 @@ FEATURE_DIR = Path(
         str(PROJECT_ROOT / "airflow" / "cache" / "current_features"),
     )
 )
+EPOCH_DIR = Path(os.environ.get("FTD_EEG_EPOCH_DIR", str(PROJECT_ROOT / "Cleaned_Epochs")))
+CONNECTIVITY_CACHE_DIR = Path(
+    os.environ.get("FTD_EEG_CONNECTIVITY_WORK_CACHE_DIR", str(PROJECT_ROOT / ".cache" / "connectivity"))
+)
 OUTPUT_DIR = PROJECT_ROOT / "notebook_outputs"
 REPORT_DIR = OUTPUT_DIR / "dang_academic_report"
 DAG_OUTPUT_DIR = OUTPUT_DIR / "airflow_final_pipeline"
+
+BANDS = ("delta", "theta", "alpha", "beta", "gamma")
+METRICS = (
+    "cov",
+    "corr",
+    "xcov",
+    "xcorr",
+    "csd",
+    "coh",
+    "mi",
+    "ecc",
+    "aecov",
+    "aecorr",
+    "plv",
+    "wplv",
+)
+EXPECTED_FEATURE_NAMES = tuple(f"{band}_{metric}" for band in BANDS for metric in METRICS)
 
 PROBLEMS = {
     "ad_hc": "AD vs HC",
@@ -32,7 +55,9 @@ REQUIRED_FEATURE_FILES = [
     FEATURE_DIR / "labels.npy",
     FEATURE_DIR / "subject_ids.npy",
     FEATURE_DIR / "feature_metadata.csv",
+    FEATURE_DIR / "all_feature_names.npy",
 ]
+REQUIRED_FEATURE_FILES.extend(FEATURE_DIR / f"{feature_name}.npy" for feature_name in EXPECTED_FEATURE_NAMES)
 
 REQUIRED_ARTIFACTS = [
     OUTPUT_DIR / "full_paper_60_v4_split_all_binary_losocv_metrics_summary.csv",
@@ -52,7 +77,42 @@ REQUIRED_ARTIFACTS = [
 )
 def ftd_eeg_mlflow_final_pipeline():
     @task
-    def validate_project_inputs() -> dict[str, object]:
+    def ensure_feature_cache() -> dict[str, object]:
+        missing_features = [str(path) for path in REQUIRED_FEATURE_FILES if not path.exists()]
+        if not missing_features:
+            return {
+                "feature_cache_action": "reused_existing_cache",
+                "feature_dir": str(FEATURE_DIR),
+                "missing_before": [],
+            }
+
+        script_path = PROJECT_ROOT / "scripts" / "ensure_connectivity_cache.py"
+        if not script_path.exists():
+            raise FileNotFoundError(f"Missing connectivity cache builder script: {script_path}")
+
+        command = [
+            sys.executable,
+            str(script_path),
+            "--input-dir",
+            str(EPOCH_DIR),
+            "--output-dir",
+            str(FEATURE_DIR),
+            "--cache-dir",
+            str(CONNECTIVITY_CACHE_DIR),
+        ]
+        completed = subprocess.run(
+            command,
+            cwd=str(PROJECT_ROOT),
+            check=True,
+            text=True,
+            capture_output=True,
+        )
+        result = json.loads(completed.stdout)
+        result["missing_before"] = missing_features
+        return result
+
+    @task
+    def validate_project_inputs(cache_status: dict[str, object]) -> dict[str, object]:
         missing = [str(path) for path in REQUIRED_FEATURE_FILES if not path.exists()]
         missing += [str(path) for path in REQUIRED_ARTIFACTS if not path.exists()]
         if missing:
@@ -61,13 +121,15 @@ def ftd_eeg_mlflow_final_pipeline():
         return {
             "project_root": str(PROJECT_ROOT),
             "feature_dir": str(FEATURE_DIR),
+            "feature_cache_action": cache_status.get("action")
+            or cache_status.get("feature_cache_action", "unknown"),
             "output_dir": str(OUTPUT_DIR),
             "mlflow_tracking_uri": MLFLOW_TRACKING_URI,
             "mlflow_experiment_name": MLFLOW_EXPERIMENT_NAME,
         }
 
     @task
-    def summarize_feature_cache() -> dict[str, object]:
+    def summarize_feature_cache(project_info: dict[str, object]) -> dict[str, object]:
         import numpy as np
         import pandas as pd
 
@@ -81,6 +143,7 @@ def ftd_eeg_mlflow_final_pipeline():
             "n_feature_sets": int(len(metadata)),
             "label_counts": {label: int(count) for label, count in zip(*np.unique(labels, return_counts=True))},
             "feature_dir_size_bytes": sum(path.stat().st_size for path in FEATURE_DIR.glob("*") if path.is_file()),
+            "feature_cache_action": project_info["feature_cache_action"],
         }
 
         DAG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -89,7 +152,7 @@ def ftd_eeg_mlflow_final_pipeline():
         return summary
 
     @task
-    def collect_final_metrics() -> dict[str, object]:
+    def collect_final_metrics(project_info: dict[str, object]) -> dict[str, object]:
         import pandas as pd
 
         metrics_path = OUTPUT_DIR / "full_paper_60_v4_split_all_binary_losocv_metrics_summary.csv"
@@ -104,6 +167,7 @@ def ftd_eeg_mlflow_final_pipeline():
         payload = {
             "metrics_csv": str(metrics_path),
             "paper_comparison_csv": str(comparison_path),
+            "feature_cache_action": project_info["feature_cache_action"],
             "metrics": metrics_records,
             "paper_comparison": comparison_records,
         }
@@ -182,6 +246,7 @@ def ftd_eeg_mlflow_final_pipeline():
                     "project_root": str(PROJECT_ROOT),
                     "feature_dir": str(FEATURE_DIR),
                     "feature_source": "precomputed_final_cache",
+                    "feature_cache_action": project_info["feature_cache_action"],
                     "base_classifier": "FgMDM",
                     "meta_classifier": "LogisticRegressionElasticNet",
                     "evaluation": "LOSOCV_subject_level",
@@ -226,9 +291,10 @@ def ftd_eeg_mlflow_final_pipeline():
 
             return run.info.run_id
 
-    project_info = validate_project_inputs()
-    feature_summary = summarize_feature_cache()
-    metrics_payload = collect_final_metrics()
+    cache_status = ensure_feature_cache()
+    project_info = validate_project_inputs(cache_status)
+    feature_summary = summarize_feature_cache(project_info)
+    metrics_payload = collect_final_metrics(project_info)
     model_card_path = build_model_card(feature_summary, metrics_payload)
     log_final_artifacts_to_mlflow(project_info, feature_summary, metrics_payload, model_card_path)
 
